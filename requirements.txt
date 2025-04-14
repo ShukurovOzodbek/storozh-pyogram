@@ -1,4 +1,6 @@
+dotenv==0.9.9
 mysql-connector-python==9.2.0
 pyaes==1.6.1
 Pyrogram==2.0.106
 PySocks==1.7.1
+python-dotenv==1.1.0
