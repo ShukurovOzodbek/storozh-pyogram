@@ -28,9 +28,6 @@ def handle_private_message(client, message):
 
 def process_pending_gifts():
     while True:
-        # for gift in app.get_available_gifts():
-        #     print(gift)
-
         try:
             db_cursor.execute("SELECT id, user_id, gift_id FROM gifts WHERE status = 'pending'")
             pending_gifts = db_cursor.fetchall()
