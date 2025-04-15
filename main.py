@@ -29,14 +29,22 @@ async def handle_gift_message(client, message):
         except Exception as e:
             print(f"[DB] Ошибка при сохранении пользователя {user_id}: {e}")
 
-    if message.gift.owner:
-        if message.gift.owner.id == app.me.id:
-            db_cursor.execute("INSERT IGNORE INTO gifts (message_id, gift_id) VALUES (%s, %s)",
-                              (message.id, message.gift.id))
+    if message.gift.owner.id == app.me.id:
+        if message.gift.owner:
+            query = """
+                INSERT INTO gifts (message_id, gift_id, quantity)
+                VALUES (%s, %s, 1)
+                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+                """
+            db_cursor.execute(query, (message.id, message.gift.id))
             db_conn.commit()
-    else:
-        if message.gift.owner.id == app.me.id:
-            db_cursor.execute("INSERT IGNORE INTO gifts (gift_id) VALUES (%s)", (message.gift.id,))
+        else:
+            query = """
+                INSERT INTO gifts (gift_id, quantity)
+                VALUES (%s, 1)
+                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+                """
+            db_cursor.execute(query, (message.gift.id))
             db_conn.commit()
 
 
@@ -52,7 +60,6 @@ async def handle_private_message(client, message):
 
 def process_pending_gifts():
     while True:
-        print(app.get_messages(chat_id=2117950066, message_ids=[50]))
         try:
             db_cursor.execute("SELECT id, user_id, gift_id FROM gifts_to_send WHERE status = 'pending'")
             pending_gifts = db_cursor.fetchall()
@@ -76,7 +83,13 @@ def process_pending_gifts():
                             db_conn.commit()
                             print(f"[GIFT] Подарок ID {gift_tg_id} отправлен пользователю {receiver_tg_id}")
 
-                        db_cursor.execute("UPDATE gifts SET status = 'sent' WHERE id = %s", (gift.get("id"),))
+                        update_query = """
+                                    UPDATE gifts
+                                    SET quantity = quantity - 1,
+                                        status = 'sent'
+                                    WHERE id = %s
+                                    """
+                        db_cursor.execute(update_query, (gift.get("id"),))
                         db_conn.commit()
                     except Exception as send_err:
                         print(f"[GIFT] Ошибка отправки файла пользователю {receiver_tg_id}: {send_err}")
