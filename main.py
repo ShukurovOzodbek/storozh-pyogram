@@ -95,7 +95,7 @@ def process_pending_gifts():
                         print(f"[GIFT] Ошибка отправки файла пользователю {receiver_tg_id}: {send_err}")
         except Exception as e:
             print(f"[DB] Ошибка при проверке подарков: {e}")
-        time.sleep(3)
+        time.sleep(60)
 
 
 if __name__ == "__main__":
