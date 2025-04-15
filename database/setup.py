@@ -23,10 +23,18 @@ CREATE TABLE IF NOT EXISTS users (
 db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS gifts (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT,
+    gift_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)""")
+
+db_cursor.execute("""
+CREATE TABLE IF NOT EXISTS gifts_to_send (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
-    gift_id VARCHAR(255) NOT NULL,
+    gift_id INT NOT NULL,
     status ENUM('pending', 'sent', 'received') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (gift_id) REFERENCES gifts(id)
 )""")
 db_conn.commit()

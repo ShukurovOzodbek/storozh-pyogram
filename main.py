@@ -16,8 +16,32 @@ PHONE_NUMBER = os.getenv("PHONE_NUMBER")
 app = Client("storozh", api_id=API_ID, api_hash=API_HASH, phone_number=PHONE_NUMBER)
 
 
-@app.on_message(filters.private)
-def handle_private_message(client, message):
+@app.on_message(filters.star_gift and filters.incoming)
+async def handle_gift_message(client, message):
+    user_id = message.from_user.id
+    db_cursor.execute("SELECT id FROM users WHERE telegram_id = (%s)", (user_id,))
+    user = db_cursor.fetchone()
+
+    if not user:
+        try:
+            db_cursor.execute("INSERT IGNORE INTO users (telegram_id) VALUES (%s)", (user_id,))
+            db_conn.commit()
+        except Exception as e:
+            print(f"[DB] Ошибка при сохранении пользователя {user_id}: {e}")
+
+    if message.gift.owner:
+        if message.gift.owner.id == app.me.id:
+            db_cursor.execute("INSERT IGNORE INTO gifts (message_id, gift_id) VALUES (%s, %s)",
+                              (message.id, message.gift.id))
+            db_conn.commit()
+    else:
+        if message.gift.owner.id == app.me.id:
+            db_cursor.execute("INSERT IGNORE INTO gifts (gift_id) VALUES (%s)", (message.gift.id,))
+            db_conn.commit()
+
+
+@app.on_message(filters.private and filters.incoming)
+async def handle_private_message(client, message):
     user_id = message.from_user.id
     try:
         db_cursor.execute("INSERT IGNORE INTO users (telegram_id) VALUES (%s)", (user_id,))
@@ -28,19 +52,32 @@ def handle_private_message(client, message):
 
 def process_pending_gifts():
     while True:
+        print(app.get_messages(chat_id=2117950066, message_ids=[50]))
         try:
-            db_cursor.execute("SELECT id, user_id, gift_id FROM gifts WHERE status = 'pending'")
+            db_cursor.execute("SELECT id, user_id, gift_id FROM gifts_to_send WHERE status = 'pending'")
             pending_gifts = db_cursor.fetchall()
             for gift in pending_gifts:
                 db_cursor.execute("SELECT telegram_id FROM users WHERE id = %s", (gift.get("user_id"),))
+                user = db_cursor.fetchone()
+
+                db_cursor.execute("SELECT message_id, gift_id FROM gifts WHERE id = %s",
+                                  (gift.get("gift_id"),))
                 result = db_cursor.fetchone()
-                if result:
-                    receiver_tg_id = result["telegram_id"]
+                if user:
+                    receiver_tg_id = user.get("telegram_id")
+                    gift_tg_id = result.get("gift_id")
+                    message_id = result.get("message_id")
                     try:
-                        app.send_gift(receiver_tg_id, gift_id=int(gift.get("gift_id")), hide_my_name=True)
+                        if message_id is None:
+                            app.send_gift(receiver_tg_id, gift_id=int(result.get("gift_id")), hide_my_name=True)
+                            print(f"[GIFT] Подарок ID {gift_tg_id} отправлен пользователю {receiver_tg_id}")
+                        else:
+                            app.transfer_gift(message_id=result.get("message_id"), to_chat_id=receiver_tg_id)
+                            db_conn.commit()
+                            print(f"[GIFT] Подарок ID {gift_tg_id} отправлен пользователю {receiver_tg_id}")
+
                         db_cursor.execute("UPDATE gifts SET status = 'sent' WHERE id = %s", (gift.get("id"),))
                         db_conn.commit()
-                        print(f"[GIFT] Подарок ID {gift.get("gift_id")} отправлен пользователю {receiver_tg_id}")
                     except Exception as send_err:
                         print(f"[GIFT] Ошибка отправки файла пользователю {receiver_tg_id}: {send_err}")
         except Exception as e:
