@@ -33,17 +33,15 @@ async def handle_gift_message(client, message):
         if message.gift.owner:
             if message.gift.owner.id == app.me.id:
                 query = """
-                    INSERT INTO gifts (message_id, gift_id, quantity)
-                    VALUES (%s, %s, 1)
-                    ON DUPLICATE KEY UPDATE quantity = quantity + 1
+                    INSERT INTO gifts (message_id, gift_id)
+                    VALUES (%s, %s)
                     """
                 db_cursor.execute(query, (message.id, message.gift.id,))
                 db_conn.commit()
         else:
             query = """
-                INSERT INTO gifts (gift_id, quantity)
-                VALUES (%s, 1)
-                ON DUPLICATE KEY UPDATE quantity = quantity + 1
+                INSERT INTO gifts (gift_id)
+                VALUES (%s)
                 """
             db_cursor.execute(query, (message.gift.id,))
             db_conn.commit()
@@ -86,10 +84,6 @@ def process_pending_gifts():
 
                         update_query = """UPDATE gifts_to_send SET status = 'sent' WHERE id = %s"""
                         db_cursor.execute(update_query, (gift.get("id"),))
-                        db_conn.commit()
-
-                        update_query = """UPDATE gifts SET quantity = quantity WHERE id = %s"""
-                        db_cursor.execute(update_query, (result.get("gift_id"),))
                         db_conn.commit()
                     except Exception as send_err:
                         print(f"[GIFT] Ошибка отправки файла пользователю {receiver_tg_id}: {send_err}")
