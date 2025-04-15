@@ -16,39 +16,40 @@ PHONE_NUMBER = os.getenv("PHONE_NUMBER")
 app = Client("storozh", api_id=API_ID, api_hash=API_HASH, phone_number=PHONE_NUMBER)
 
 
-@app.on_message(filters.star_gift and filters.incoming)
+@app.on_message(filters.private & filters.star_gift & filters.incoming)
 async def handle_gift_message(client, message):
     user_id = message.from_user.id
-    db_cursor.execute("SELECT id FROM users WHERE telegram_id = (%s)", (user_id,))
-    user = db_cursor.fetchone()
+    if user_id != app.me.id:
+        db_cursor.execute("SELECT id FROM users WHERE telegram_id = (%s)", (user_id,))
+        user = db_cursor.fetchone()
 
-    if not user:
-        try:
-            db_cursor.execute("INSERT IGNORE INTO users (telegram_id) VALUES (%s)", (user_id,))
-            db_conn.commit()
-        except Exception as e:
-            print(f"[DB] Ошибка при сохранении пользователя {user_id}: {e}")
+        if not user:
+            try:
+                db_cursor.execute("INSERT IGNORE INTO users (telegram_id) VALUES (%s)", (user_id,))
+                db_conn.commit()
+            except Exception as e:
+                print(f"[DB] Ошибка при сохранении пользователя {user_id}: {e}")
 
-    if message.gift.owner.id == app.me.id:
         if message.gift.owner:
-            query = """
-                INSERT INTO gifts (message_id, gift_id, quantity)
-                VALUES (%s, %s, 1)
-                ON DUPLICATE KEY UPDATE quantity = quantity + 1
-                """
-            db_cursor.execute(query, (message.id, message.gift.id))
-            db_conn.commit()
+            if message.gift.owner.id == app.me.id:
+                query = """
+                    INSERT INTO gifts (message_id, gift_id, quantity)
+                    VALUES (%s, %s, 1)
+                    ON DUPLICATE KEY UPDATE quantity = quantity + 1
+                    """
+                db_cursor.execute(query, (message.id, message.gift.id,))
+                db_conn.commit()
         else:
             query = """
                 INSERT INTO gifts (gift_id, quantity)
                 VALUES (%s, 1)
                 ON DUPLICATE KEY UPDATE quantity = quantity + 1
                 """
-            db_cursor.execute(query, (message.gift.id))
+            db_cursor.execute(query, (message.gift.id,))
             db_conn.commit()
 
 
-@app.on_message(filters.private and filters.incoming)
+@app.on_message(filters.private & filters.incoming)
 async def handle_private_message(client, message):
     user_id = message.from_user.id
     try:
@@ -83,19 +84,18 @@ def process_pending_gifts():
                             db_conn.commit()
                             print(f"[GIFT] Подарок ID {gift_tg_id} отправлен пользователю {receiver_tg_id}")
 
-                        update_query = """
-                                    UPDATE gifts
-                                    SET quantity = quantity - 1,
-                                        status = 'sent'
-                                    WHERE id = %s
-                                    """
+                        update_query = """UPDATE gifts_to_send SET status = 'sent' WHERE id = %s"""
                         db_cursor.execute(update_query, (gift.get("id"),))
+                        db_conn.commit()
+
+                        update_query = """UPDATE gifts SET quantity = quantity WHERE id = %s"""
+                        db_cursor.execute(update_query, (result.get("gift_id"),))
                         db_conn.commit()
                     except Exception as send_err:
                         print(f"[GIFT] Ошибка отправки файла пользователю {receiver_tg_id}: {send_err}")
         except Exception as e:
             print(f"[DB] Ошибка при проверке подарков: {e}")
-        time.sleep(60)
+        time.sleep(3)
 
 
 if __name__ == "__main__":

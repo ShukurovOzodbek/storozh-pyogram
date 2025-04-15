@@ -7,7 +7,8 @@ DB_CONFIG = {
     "host": "localhost",
     "user": "root",
     "password": "github_4",
-    "database": "storozh"
+    "database": "storozh",
+    "autocommit": True
 }
 
 db_conn = mysql.connector.connect(**DB_CONFIG)
@@ -24,7 +25,7 @@ db_cursor.execute("""
 CREATE TABLE IF NOT EXISTS gifts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     message_id INT,
-    gift_id BIGINT NOT NULL,
+    gift_id BIGINT NOT NULL UNIQUE,
     quantity INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )""")
