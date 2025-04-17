@@ -53,6 +53,7 @@ async def handle_private_message(client, message):
     try:
         db_cursor.execute("INSERT IGNORE INTO users (telegram_id) VALUES (%s)", (user_id,))
         db_conn.commit()
+        print(f"[DB] Пользователь {user_id} сохранен: {e}")
     except Exception as e:
         print(f"[DB] Ошибка при сохранении пользователя {user_id}: {e}")
 
