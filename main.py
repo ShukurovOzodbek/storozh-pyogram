@@ -13,7 +13,7 @@ API_ID = os.getenv("APP_ID")
 API_HASH = os.getenv("API_HASH")
 PHONE_NUMBER = os.getenv("PHONE_NUMBER")
 
-app = Client("storozh", api_id=API_ID, api_hash=API_HASH, phone_number=PHONE_NUMBER)
+app = Client(os.getenv("SESSION_NAME"), api_id=API_ID, api_hash=API_HASH, phone_number=PHONE_NUMBER)
 
 
 @app.on_message(filters.private & filters.star_gift & filters.incoming)
